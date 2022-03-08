@@ -7,18 +7,14 @@ from math import sqrt
 from machine import Pin, I2C
 
 from pico_i2c_lcd import I2cLcd
+from ssd1306 import SSD1306_I2C
 
 import time
 
 
 i2c = I2C(1, sda=Pin(2), scl=Pin(3), freq=400000)
 
-while True:
-    print(i2c)
-    for i in i2c.scan():
-        print(hex(i))
-
-lcd = I2cLcd(i2c, 0x27, 2, 16)
+lcd = SSD1306_I2C(128, 64, i2c)
 
 
 class Buttons:
@@ -64,7 +60,7 @@ class Pins:
             self.pinCols.append(Pin(pin, Pin.IN))
 
     @staticmethod
-    def translate_pin(row: int, col: int):
+    def translate_pin(row: int, col: int, is_long_press: bool = False):
         if row == 0 and col == 0:
             return Buttons.one
         elif row == 0 and col == 1:
@@ -94,6 +90,8 @@ class Pins:
         elif row == 3 and col == 1:
             return Buttons.divide
         elif row == 3 and col == 2:
+            if is_long_press:
+                return Buttons.end_brace
             return Buttons.start_brace
         elif row == 3 and col == 3:
             return Buttons.ok
@@ -106,6 +104,14 @@ class Pins:
         elif row == 4 and col == 3:
             return Buttons.square_root
 
+    @staticmethod
+    def is_long_press(col: Pin):
+        for i in range(10):
+            if col.value() != PinStatus.HIGH:
+                return False
+            time.sleep(0.1)
+        return True
+
     def multiplex(self):
         for i in range(len(self.pinRows)):
             row: Pin = self.pinRows[i]
@@ -113,8 +119,9 @@ class Pins:
             for n in range(len(self.pinCols)):
                 col_pin = self.pinCols[n]
                 if col_pin.value() == PinStatus.HIGH:
+                    is_long = Pins.is_long_press(col_pin)
                     row.off()
-                    return Pins.translate_pin(i, n)
+                    return Pins.translate_pin(i, n, is_long)
             row.off()
 
 
@@ -124,6 +131,8 @@ class Math:
         # Matches all with operators afterwards
         while True:
             matches = re.search(r"(\^).[+-/*]", to_evaluate)
+            if not matches:
+                break
             match = matches.group(0)
             if not match:
                 break
@@ -133,6 +142,8 @@ class Math:
         # Matches all without operators afterwards
         while True:
             matches = re.search(r"(\^).", to_evaluate)
+            if not matches:
+                break
             match = matches.group(0)
             if not match:
                 break
@@ -146,16 +157,38 @@ pins = Pins()
 
 to_eval = ""
 
+hasCalculated = False
+
 while True:
     m = pins.multiplex()
     if m:
         if type(m) == str:
+            if hasCalculated:
+                lcd.fill(0)
+                hasCalculated = False
             to_eval += m
-            lcd.clear()
-            lcd.putstr(to_eval)
+            for i in range(8):
+                lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            lcd.show()
         elif m == Buttons.ok:
-            to_eval = Math.evaluate(to_eval)
-            lcd.clear()
-            lcd.putstr(to_eval)
+            try:
+                to_eval = str(Math.evaluate(to_eval))
+                lcd.text(to_eval, 0, 56)
+                lcd.show()
+            except:
+                lcd.text("NAPAKA", 0, 56)
+                lcd.show()
+                to_eval = ""
+            hasCalculated = True
+        elif m == Buttons.cancel:
+            to_eval = ""
+            lcd.fill(0)
+            lcd.show()
+        elif m == Buttons.delete:
+            to_eval = to_eval[:-1]
+            lcd.fill(0)
+            for i in range(8):
+                lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            lcd.show()
     time.sleep(0.2)
 
