@@ -39,7 +39,10 @@ class Buttons:
     start_brace = "("
     end_brace = ")"
     square_root = "^"
-	menu = 21
+    menu = 21
+    up = 22
+    down = 23
+
 
 class PinStatus:
     HIGH = 1
@@ -60,8 +63,10 @@ class Pins:
             self.pinCols.append(Pin(pin, Pin.IN))
 
     @staticmethod
-    def translate_pin(row: int, col: int, is_long_press: bool = False):
+    def translate_pin(row: int, col: int, state: int, is_long_press: bool):
         if row == 0 and col == 0:
+            if state == State.formula_overview:
+                return Buttons.up
             return Buttons.one
         elif row == 0 and col == 1:
             return Buttons.two
@@ -70,6 +75,8 @@ class Pins:
         elif row == 0 and col == 3:
             return Buttons.four
         elif row == 1 and col == 0:
+            if state == State.formula_overview:
+                return Buttons.down
             return Buttons.five
         elif row == 1 and col == 1:
             return Buttons.six
@@ -95,7 +102,7 @@ class Pins:
             return Buttons.start_brace
         elif row == 3 and col == 3:
             if is_long_press:
-				return Buttons.menu
+                return Buttons.menu
             return Buttons.ok
         elif row == 4 and col == 0:
             return Buttons.plus
@@ -113,8 +120,9 @@ class Pins:
                 return False
             time.sleep(0.1)
         return True
+    
 
-    def multiplex(self):
+    def multiplex(self, state: int):
         for i in range(len(self.pinRows)):
             row: Pin = self.pinRows[i]
             row.on()
@@ -123,7 +131,7 @@ class Pins:
                 if col_pin.value() == PinStatus.HIGH:
                     is_long = Pins.is_long_press(col_pin)
                     row.off()
-                    return Pins.translate_pin(i, n, is_long)
+                    return Pins.translate_pin(i, n, state, is_long)
             row.off()
 
 
@@ -156,36 +164,38 @@ class Math:
 
 
 class State:
-	calculate = 0
-	formula_menu = 1
-	formula_overview = 2
-	formula_calculation = 3
+    calculate = 0
+    formula_overview = 1
+    formula_calculation = 2
 
 
 class FormulaProvider:
-	def __init__(self, provider_name, provider_formula_name, unit, constant = None):
-		self.provider_name = provider_name
-		self.provider_formula_name = provider_formula_name
-		self.unit = unit
-		self.constant = constant
+    value = ""
+
+    def __init__(self, provider_name, provider_formula_name, unit):
+        self.provider_name = provider_name
+        self.provider_formula_name = provider_formula_name
+        self.unit = unit
 
 
 class FormulaProviders:
-	mass = FormulaProvider("Masa", "m", "kg")
-	speed = FormulaProvider("Hitrost", "v", "m/s")
-	distance = FormulaProvider("Pot", "s", "m")
-	force = FormulaProvider("Sila", "F", "N")
-	accelaration = FormulaProvider("Pospešek", "a", "m/(s**2)")
-	kinetic_energy = FormulaProvider("Kinetična energija", "Wk", "J")
-	potential_energy = FormulaProvider("Potencialna energija", "Wp", "J")
-	work = FormulaProvider("Delo", "A", "J")
-	gravitational_accelaration = FormulaProvider("Gravitacijski pospešek", "g",  "m/(s**2)", 10)
-	height = FormulaProvider("Višina", "h", "m")
+    mass = FormulaProvider("Masa", "m", "kg")
+    speed = FormulaProvider("Hitrost", "v", "m/s")
+    distance = FormulaProvider("Pot", "s", "m")
+    force = FormulaProvider("Sila", "F", "N")
+    accelaration = FormulaProvider("Pospešek", "a", "m/(s**2)")
+    kinetic_energy = FormulaProvider("Kinetična energija", "Wk", "J")
+    potential_energy = FormulaProvider("Potencialna energija", "Wp", "J")
+    work = FormulaProvider("Delo", "A", "J")
+    gravitational_accelaration = FormulaProvider("Gravitacijski pospešek", "g",  "m/(s**2)")
+    height = FormulaProvider("Višina", "h", "m")
+    start_speed = FormulaProvider("Začetna hitrost", "v1", "m/s")
+    end_speed = FormulaProvider("Končna hitrost", "v2", "m/s")
 	
 
 
 class Formula:
-	def __init__(self, formula_name, formula, description, calculation_formula, providers)
+	def __init__(self, formula_name, formula, description, calculation_formula, providers):
 		self.formula_name = formula_name
 		self.formula = formula
 		self.description = description
@@ -194,12 +204,42 @@ class Formula:
 
 
 class Formulas:
-	formulas: list[Formula] = [
-		Formula("Delo", "A=F*s", "Izračun dela iz sile in poti", "F*s", [FormulaProviders.force, FormulaProviders.distance]),
-		Formula("Kinetična energija", "Wk=(m*(v**2))/2", "Izračun kinetične energije iz hitrosti in mase", "(m*(v**2))/2", [FormulaProviders.mass, FormulaProviders.speed]),
-		Formula("Potencialna energija iz mase", "Wp=m*g*h", "Izračun potencialne energije iz mase in višine", "m*g*h", [FormulaProviders.mass, FormulaProviders.height]),
-		Formula("Potencialna energija iz sile", "Wp=F*h", "Izračun potencialne energije iz sile in višine", "F*h", [FormulaProviders.force, FormulaProviders.height]),
-	]
+    formulas = [
+        Formula("Delo", "A=F*s", "Izračun dela iz sile in poti", "F*s", [FormulaProviders.force, FormulaProviders.distance]),
+        Formula("Kinetična energija", "Wk=(m*(v**2))/2", "Izračun kinetične energije iz hitrosti in mase", "(m*(v**2))/2", [FormulaProviders.mass, FormulaProviders.speed]),
+        Formula("Potencialna energija iz mase", "Wp=m*g*h", "Izračun potencialne energije iz mase in višine", "m*10*h", [FormulaProviders.mass, FormulaProviders.height]),
+        Formula("Potencialna energija iz sile", "Wp=F*h", "Izračun potencialne energije iz sile in višine", "F*h", [FormulaProviders.force, FormulaProviders.height]),
+        Formula("Povprečna hitrost", "v_avg=(v1+v2)/2", "Izračun povprečne hitrosti iz začetne in končne hitrosti", "(v1+v2)/2", [FormulaProviders.start_speed, FormulaProviders.end_speed]),
+    ]
+    
+    @staticmethod
+    def formula_preparation(provider_state):
+        formula = Formulas.formulas[provider_state.current_formula]
+        for provider in provider_state.providers:
+            formula.calculation_formula = formula.calculation_formula.replace(provider.provider_formula_name, provider.value)
+        return formula.calculation_formula
+
+    @staticmethod
+    def draw_formula_overview(current_formula: int):
+        f = Formulas.formulas[current_formula]
+
+        lcd.fill(0)
+        lcd.text(f.formula_name, 0, 0)
+        for i in range(1, 4):
+            lcd.text(f.description, 0, i*8)
+        lcd.text(f.formula, 0, 32)
+        for i in range(5, 8):
+            provider = f.providers[i-5]
+            lcd.text(f"{provider.provider_name} {provider.provider_formula_name}/{provider.unit}")
+        lcd.show()
+
+
+class ProviderState:
+    at_provider = 0
+    
+    def __init__(self, providers, current_formula):
+        self.providers = providers
+        self.current_formula = current_formula
 
 
 pins = Pins()
@@ -208,39 +248,97 @@ to_eval = ""
 
 hasCalculated = False
 state = State.calculate
+current_formula = 0
+provider_state = None
 
 while True:
-    m = pins.multiplex()
+    m = pins.multiplex(state)
     if m:
         if type(m) == str:
-            if hasCalculated:
-                lcd.fill(0)
-                hasCalculated = False
-            to_eval += m
-            for i in range(8):
-                lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            if state == State.calculate:
+                if hasCalculated:
+                    lcd.fill(0)
+                    hasCalculated = False
+                to_eval += m
+                for i in range(8):
+                    lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            elif state == State.formula_calculation:
+                if provider_state:
+                    provider = provider_state.providers[provider_state.at_provider]
+                    provider.value += m
+                    lcd.text(provider.value, (len(provider.provider_name) + 1) * 8, provider_state.at_provider * 8)
             lcd.show()
         elif m == Buttons.ok:
-            try:
-                to_eval = str(Math.evaluate(to_eval))
-                lcd.text(to_eval, 0, 56)
+            if state == State.calculate:
+                try:
+                    to_eval = str(Math.evaluate(to_eval))
+                    lcd.text(to_eval, 0, 56)
+                except:
+                    lcd.text("NAPAKA", 0, 56)
+                    to_eval = ""
                 lcd.show()
-            except:
-                lcd.text("NAPAKA", 0, 56)
+                hasCalculated = True
+            elif state == State.formula_overview:
+                lcd.fill(0)
+                state = State.formula_calculation
+                f = Formulas.formulas[current_formula]
+                provider_state = ProviderState(f.providers, current_formula)
+                for i in range(len(f.providers)):
+                    provider = f.providers[i]
+                    lcd.text(provider.provider_name, 0, i*8)
                 lcd.show()
-                to_eval = ""
-            hasCalculated = True
+            elif state == State.formula_calculation:
+                if provider_state:
+                    if provider_state.at_provider < len(provider_state.providers) - 1:
+                        provider_state.at_provider += 1
+                    else:
+                        try:
+                            to_eval = str(Math.evaluate(Formulas.formula_preparation(provider_state)))
+                            lcd.text(to_eval, 0, 56)
+                        except:
+                            lcd.text("NAPAKA", 0, 56)
+                            to_eval = ""
+                        lcd.show()
+                        provider_state = None
         elif m == Buttons.menu:
-			state = State.menu
+            state = State.formula_overview
+            current_formula = 0
+            Formulas.draw_formula_overview(current_formula)
         elif m == Buttons.cancel:
+            state = State.calculate
+            current_formula = 0
             to_eval = ""
             lcd.fill(0)
             lcd.show()
         elif m == Buttons.delete:
-            to_eval = to_eval[:-1]
             lcd.fill(0)
-            for i in range(8):
-                lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            if state == State.calculate:
+                to_eval = to_eval[:-1]
+                for i in range(8):
+                    lcd.text(to_eval[16*i:16*(i+1)], 0, i*8)
+            elif state == State.formula_calculation:
+                # Cut off last digit
+                provider_state.providers[provider_state.at_provider].value = provider_state.providers[provider_state.at_provider][:-1]
+                for i in range(len(provider_state.providers)):
+                    provider = provider_state.providers[i]
+                    # First, let's initialize prefixes
+                    lcd.text(provider.provider_name, 0, i*8)
+                    # Now we reinit values
+                    lcd.text(provider.value, (len(provider.provider_name) + 1) * 8, i * 8)
             lcd.show()
+        elif m == Buttons.down:
+            if state == State.formula_overview:
+                if len(Formulas.formulas) - 1 > current_formula:
+                    current_formula += 1
+                else:
+                    current_formula = 0
+                Formulas.draw_formula_overview(current_formula)
+        elif m == Buttons.up:
+            if state == State.formula_overview:
+                if current_formula < 1:
+                    current_formula = 0
+                else:
+                    current_formula -= 1
+                Formulas.draw_formula_overview(current_formula)
     time.sleep(0.2)
 
