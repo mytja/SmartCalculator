@@ -39,7 +39,7 @@ class Buttons:
     start_brace = "("
     end_brace = ")"
     square_root = "^"
-
+	menu = 21
 
 class PinStatus:
     HIGH = 1
@@ -94,6 +94,8 @@ class Pins:
                 return Buttons.end_brace
             return Buttons.start_brace
         elif row == 3 and col == 3:
+            if is_long_press:
+				return Buttons.menu
             return Buttons.ok
         elif row == 4 and col == 0:
             return Buttons.plus
@@ -153,11 +155,59 @@ class Math:
         return eval(to_evaluate)
 
 
+class State:
+	calculate = 0
+	formula_menu = 1
+	formula_overview = 2
+	formula_calculation = 3
+
+
+class FormulaProvider:
+	def __init__(self, provider_name, provider_formula_name, unit, constant = None):
+		self.provider_name = provider_name
+		self.provider_formula_name = provider_formula_name
+		self.unit = unit
+		self.constant = constant
+
+
+class FormulaProviders:
+	mass = FormulaProvider("Masa", "m", "kg")
+	speed = FormulaProvider("Hitrost", "v", "m/s")
+	distance = FormulaProvider("Pot", "s", "m")
+	force = FormulaProvider("Sila", "F", "N")
+	accelaration = FormulaProvider("Pospešek", "a", "m/(s**2)")
+	kinetic_energy = FormulaProvider("Kinetična energija", "Wk", "J")
+	potential_energy = FormulaProvider("Potencialna energija", "Wp", "J")
+	work = FormulaProvider("Delo", "A", "J")
+	gravitational_accelaration = FormulaProvider("Gravitacijski pospešek", "g",  "m/(s**2)", 10)
+	height = FormulaProvider("Višina", "h", "m")
+	
+
+
+class Formula:
+	def __init__(self, formula_name, formula, description, calculation_formula, providers)
+		self.formula_name = formula_name
+		self.formula = formula
+		self.description = description
+		self.calculation_formula = calculation_formula
+		self.providers = providers
+
+
+class Formulas:
+	formulas: list[Formula] = [
+		Formula("Delo", "A=F*s", "Izračun dela iz sile in poti", "F*s", [FormulaProviders.force, FormulaProviders.distance]),
+		Formula("Kinetična energija", "Wk=(m*(v**2))/2", "Izračun kinetične energije iz hitrosti in mase", "(m*(v**2))/2", [FormulaProviders.mass, FormulaProviders.speed]),
+		Formula("Potencialna energija iz mase", "Wp=m*g*h", "Izračun potencialne energije iz mase in višine", "m*g*h", [FormulaProviders.mass, FormulaProviders.height]),
+		Formula("Potencialna energija iz sile", "Wp=F*h", "Izračun potencialne energije iz sile in višine", "F*h", [FormulaProviders.force, FormulaProviders.height]),
+	]
+
+
 pins = Pins()
 
 to_eval = ""
 
 hasCalculated = False
+state = State.calculate
 
 while True:
     m = pins.multiplex()
@@ -180,6 +230,8 @@ while True:
                 lcd.show()
                 to_eval = ""
             hasCalculated = True
+        elif m == Buttons.menu:
+			state = State.menu
         elif m == Buttons.cancel:
             to_eval = ""
             lcd.fill(0)
