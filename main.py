@@ -11,7 +11,6 @@ from ssd1306 import SSD1306_I2C
 
 import time
 
-
 i2c = I2C(1, sda=Pin(2), scl=Pin(3), freq=400000)
 
 lcd = SSD1306_I2C(128, 64, i2c)
@@ -159,6 +158,8 @@ class Math:
                 break
             number = match[1:]
             to_evaluate = to_evaluate.replace(match, f"sqrt({number})")
+        
+        print(to_evaluate)
 
         return eval(to_evaluate)
 
@@ -199,6 +200,16 @@ class FormulaProviders:
     resistance = FormulaProvider("Upor", "Ohm", "Ω")
     current = FormulaProvider("Napetost", "U", "V")
     voltage = FormulaProvider("Tok", "I", "A")
+    radius = FormulaProvider("Polmer", "r", "cm")
+    diameter = FormulaProvider("Premer", "d", "cm")
+    a = FormulaProvider("Stranica", "a", "cm")
+    height_to_a = FormulaProvider("Visina na stranico", "v", "cm")
+    height_geo = FormulaProvider("Visina", "v", "cm")
+    base_area = FormulaProvider("Os. pl.", "O", "cm2")
+    coat = FormulaProvider("Plasc", "Pl", "cm2")
+    leg1 = FormulaProvider("Kateta 1", "k1", "cm")
+    leg2 = FormulaProvider("Kateta 2", "k2", "cm")
+    hypotenuse = FormulaProvider("Hipotenuza", "h", "cm")
 
 
 class Formula:
@@ -207,6 +218,7 @@ class Formula:
         self.formula = formula
         self.description = description
         self.calculation_formula = calculation_formula
+        self.backup_formula = calculation_formula
         self.providers = providers
 
 
@@ -238,6 +250,25 @@ class Formulas:
         Formula("Upor", "R=U/I", "Izracun upora iz napetosti in toka", "U/I", [FormulaProviders.current, FormulaProviders.voltage]),
         Formula("Tok", "I=U/R", "Izracun toka iz napetosti in upora", "U/R", [FormulaProviders.resistance, FormulaProviders.voltage]),
         Formula("Napetost", "U=I*R", "Izracun napetosti iz toka in upora", "I*R", [FormulaProviders.resistance, FormulaProviders.current]),
+        
+        
+        # Formule povezane z geometrijo
+        # Krog
+        Formula("Obseg kroga", "o=2*pi*r", "Izracun obsega iz polmera", "2*(math.pi)*r", [FormulaProviders.radius]),
+        Formula("Obseg kroga", "o=pi*d", "Izracun obsega iz premera", "(math.pi)*d", [FormulaProviders.diameter]),
+        Formula("Ploščina kroga", "p=pi*(r**2)", "Izracun ploščine iz polmera", "(math.pi)*(r**2)", [FormulaProviders.radius]),
+        # Trikotnik
+        Formula("Ploščina trikotnika", "p=(a*va)/2", "Izracun obsega iz polmera", "(a*v)/2", [FormulaProviders.a, FormulaProviders.height_to_a]),
+        # Prizma
+        Formula("Volumen prizme", "V=Ov", "Izracun volumna iz osnovne plosve in višine", "O*v", [FormulaProviders.base_area, FormulaProviders.height_geo]),
+        Formula("Površina prizme", "P=2*O*Pl", "Izracun površine iz osnovne plosve in plašča", "2*O*Pl", [FormulaProviders.base_area, FormulaProviders.coat]),
+        # Piramida
+        Formula("Volumen piramide", "V=(O*v)/3", "Izracun volumna iz osnovne plosve in višine", "(O*v)/3", [FormulaProviders.base_area, FormulaProviders.height_geo]),
+        Formula("Površina piramide", "P=O*Pl", "Izracun površine iz osnovne plosve in plašča", "O*Pl", [FormulaProviders.base_area, FormulaProviders.coat]),
+        
+        # Pitagorov izrek
+        Formula("Hipotenuza", "h=^(k1**2+k2**2)", "Izracun hipotenuze iz katet", "^k1**2+k2**2", [FormulaProviders.leg1, FormulaProviders.leg2]),
+        Formula("Kateta", "k=^(h**2-k**2)", "Izracun katete iz hipotenuze in druge katete", "^h**2-k1**2", [FormulaProviders.hypotenuse, FormulaProviders.leg1]),
     ]
 
     @staticmethod
@@ -281,6 +312,18 @@ hasCalculated = False
 state = State.calculate
 current_formula = 0
 provider_state = None
+
+
+def reset_provider_state():
+    global provider_state
+    
+    if not provider_state:
+        return
+    for i in provider_state.providers:
+        i.value = ""
+    Formulas.formulas[current_formula].calculation_formula = Formulas.formulas[current_formula].backup_formula
+    provider_state = None
+
 
 while True:
     m = pins.multiplex(state)
@@ -326,17 +369,20 @@ while True:
                         try:
                             to_eval = str(Math.evaluate(Formulas.formula_preparation(provider_state)))
                             lcd.text(to_eval, 0, 56)
-                        except:
+                        except Exception as e:
+                            print(e)
                             lcd.text("NAPAKA", 0, 56)
                             to_eval = ""
                         lcd.show()
-                        provider_state = None
+                        reset_provider_state()
         elif m == Buttons.menu:
+            reset_provider_state()
             state = State.formula_overview
             current_formula = 0
             Formulas.lcd_formula_overview(current_formula)
             time.sleep(1)
         elif m == Buttons.cancel:
+            reset_provider_state()
             state = State.calculate
             current_formula = 0
             to_eval = ""
