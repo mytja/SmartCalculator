@@ -1,0 +1,37 @@
+name: "Build SmartCalculator MicroPython"
+on:
+  push:
+
+jobs:
+  build-micropython-release:
+    name: Build SmartCalculator custom MicroPython release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install git, snap and clone MicroPython & st7789_mpy library
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git snapd
+          sudo snap install --classic cmake
+          git clone https://github.com/micropython/micropython --recursive
+          git clone https://github.com/russhughes/st7789_mpy
+      - name: Copy dependencies to modules folder of MicroPython
+        run: |
+          cp st7789_mpy/fonts/bitmap/vga1_16x32.py micropython/ports/rp2/modules
+          cp st7789_mpy/fonts/bitmap/vga2_bold_16x16.py micropython/ports/rp2/modules
+          cp ssd1306.py micropython/ports/rp2/modules
+          cp main.py micropython/ports/rp2/modules
+      - name: Compile mpy-cross
+        working-directory: ./micropython
+        run: |
+          make -C mpy-cross
+      - name: Compile RP2 port (Raspberry Pi Pico, RP2040)
+        working-directory: ./micropython/ports/rp2
+        run: |
+          make submodules
+          make clean
+          make USER_C_MODULES=../../../st7789_mpy/st7789/micropython.cmake
+      - uses: actions/upload-artifact@v3
+        with:
+          name: RP2-SmartCalculator
+          path: micropython/ports/rp2/build/firmware.uf2
