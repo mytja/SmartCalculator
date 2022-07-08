@@ -11,7 +11,7 @@ jobs:
       - name: Install git, snap and clone MicroPython & st7789_mpy library
         run: |
           sudo apt-get update
-          sudo apt-get install -y git snapd gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential tree
+          sudo apt-get install -y git snapd gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
           sudo snap install --classic cmake
           git clone https://github.com/micropython/micropython --recursive
           git clone https://github.com/russhughes/st7789_mpy
@@ -31,9 +31,7 @@ jobs:
           make submodules
           make clean
           make USER_C_MODULES=../../../st7789_mpy/st7789/micropython.cmake
-      - name: View directory structure
-        run: tree
       - uses: actions/upload-artifact@v3
         with:
           name: RP2-SmartCalculator
-          path: micropython/ports/rp2/build/firmware.uf2
+          path: micropython/ports/rp2/build-PICO/firmware.uf2
