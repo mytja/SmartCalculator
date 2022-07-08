@@ -11,7 +11,7 @@ jobs:
       - name: Install git, snap and clone MicroPython & st7789_mpy library
         run: |
           sudo apt-get update
-          sudo apt-get install -y git snapd
+          sudo apt-get install -y git snapd gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential
           sudo snap install --classic cmake
           git clone https://github.com/micropython/micropython --recursive
           git clone https://github.com/russhughes/st7789_mpy
